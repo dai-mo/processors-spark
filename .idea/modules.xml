@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/dcs.iml" filepath="$PROJECT_DIR$/dcs.iml" />
+      <module fileurl="file://$PROJECT_DIR$/dcs.vaadin/dcs.vaadin.iml" filepath="$PROJECT_DIR$/dcs.vaadin/dcs.vaadin.iml" />
+    </modules>
+  </component>
+</project>
