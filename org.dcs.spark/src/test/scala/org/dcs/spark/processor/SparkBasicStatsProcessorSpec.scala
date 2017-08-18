@@ -1,19 +1,18 @@
 package org.dcs.spark.processor
 
-import java.util
 import java.util.{Map => JavaMap}
 
 import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.spark.streaming.Seconds
-import org.dcs.api.processor.{CoreProperties, ProcessorSchemaField, PropertyType, RelationshipType}
-import org.dcs.commons.serde.JsonSerializerImplicits._
-import org.dcs.commons.serde.{AvroSchemaStore, JsonPath}
-import org.dcs.spark.{RunSpark, SparkUtils}
+import org.dcs.api.processor.RelationshipType
+import org.dcs.commons.serde.AvroImplicits._
+import org.dcs.commons.serde.AvroSchemaStore
+import org.dcs.spark.RunSpark
 import org.dcs.spark.processor.SparkBasicStatsProcessor.{AverageKey, CountKey}
 import org.dcs.spark.receiver.{IncrementalReceiver, TestReceiver}
-import org.dcs.spark.sender.{AccSender, PrintSender, ResultAccumulator}
+import org.dcs.spark.sender.AccSender
 import org.scalatest.time.{Millis, Span}
-import org.dcs.commons.serde.AvroImplicits._
+
 import scala.collection.JavaConverters._
 
 class SparkBasicStatsProcessorSpec extends SparkStreamingSpec {

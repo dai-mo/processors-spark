@@ -8,7 +8,7 @@ import org.apache.spark.streaming.{State, Time}
 import org.dcs.api.processor.RelationshipType._
 import org.dcs.api.processor._
 import org.dcs.commons.serde.AvroSchemaStore
-import org.dcs.spark.{SparkStreamingBase, SparkUtils}
+import org.dcs.spark.{SparkStreamingBase, SparkStreamingStateBase, SparkUtils}
 
 import scala.collection.JavaConverters._
 
@@ -29,7 +29,7 @@ object SparkBasicStatsProcessor {
 /**
   * Created by cmathew on 09.11.16.
   */
-class SparkBasicStatsProcessor extends SparkStreamingBase
+class SparkBasicStatsProcessor extends SparkStreamingStateBase
   with FieldsToMap
   with Ingestion {
 
