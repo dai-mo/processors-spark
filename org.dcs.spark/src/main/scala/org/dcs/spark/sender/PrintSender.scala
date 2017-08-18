@@ -5,6 +5,14 @@ import org.dcs.spark.{Sender, SparkUtils}
 import org.dcs.commons.serde.AvroImplicits._
 import org.dcs.commons.serde.AvroSchemaStore
 
+
+object TestSender {
+  def apply(): PrintSender = {
+    new PrintSender("org.dcs.spark.processor.SparkBasicStatsProcessor")
+  }
+}
+
+
 object PrintSender {
   def apply(schemaId: String) : PrintSender =
     new PrintSender(schemaId)
@@ -18,7 +26,8 @@ class PrintSender(schemaId: String)
 
   override def send(output: Array[Array[Byte]]): Unit = {
     val schema: Option[Schema] = AvroSchemaStore.get(schemaId)
-    SparkUtils.appLogger.warn("Record ===>" + output.apply(1).deSerToGenericRecord(schema, schema))
+    val gr = output.apply(1).deSerToGenericRecord(schema, schema)
+    SparkUtils.appLogger.warn("Sender ===>" + gr)
   }
 
   override def close(): Unit = {

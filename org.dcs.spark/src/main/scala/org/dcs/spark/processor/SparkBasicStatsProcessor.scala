@@ -1,16 +1,21 @@
 package org.dcs.spark.processor
 
+import java.util
 import java.util.{Map => JavaMap}
 
-import org.apache.avro.generic.GenericRecord
-import org.apache.spark.streaming.dstream.DStream
+import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
+import org.apache.spark.streaming.{State, Time}
 import org.dcs.api.processor.RelationshipType._
 import org.dcs.api.processor._
-import org.dcs.spark.SparkStreamingBase
+import org.dcs.commons.serde.AvroSchemaStore
+import org.dcs.spark.{SparkStreamingBase, SparkUtils}
+
+import scala.collection.JavaConverters._
 
 
 object SparkBasicStatsProcessor {
   val AverageKey = "average"
+  val CountKey = "count"
 
   def apply(): SparkBasicStatsProcessor = {
     new SparkBasicStatsProcessor()
@@ -30,22 +35,63 @@ class SparkBasicStatsProcessor extends SparkStreamingBase
 
   import SparkBasicStatsProcessor._
 
-  override def initState(): Unit = {
 
+  override def initialState(): GenericRecord = {
+    AvroSchemaStore.get(schemaId).map(s =>
+      new GenericRecordBuilder(s)
+        .set(CountKey, 0)
+        .set(AverageKey, new util.HashMap())
+        .build()
+    ).get
   }
 
-//  override def execute(record: Option[GenericRecord],
-//                       propertyValues: util.Map[String, String]):
-//  List[Either[ErrorResponse, (String, GenericRecord)]] = {
-//    val m = record.mappings(propertyValues)
-//
-//    val fieldsToAverage = m.get(AverageKey).asList[Double]
-//
-//    List()
-//  }
+  override def stateUpdate(props: JavaMap[String, String])
+                 (batchTime: Time,
+                  id: Int,
+                  record: Option[GenericRecord],
+                  state: GenericRecord): Option[GenericRecord] = {
+    val m = record.mappings(props)
+    val avgs = m.get(AverageKey).asList[(String, Int)]
 
-  def execute(record: DStream[GenericRecord]): DStream[GenericRecord] = {
-    record
+    val count = Option(state.get(CountKey)).asInt.getOrElse(0)
+    val currentAvgs = Option(state.get(AverageKey)).asMap[String, Double].getOrElse(Map())
+
+    val cavgs = avgs.map(ma =>
+      ma.map(a =>{
+        val cavg = currentAvgs.getOrElse(a._1, 0.0)
+        val avg = (a._2 + cavg * count) / (count + 1)
+        (a._1, avg)
+      })
+    ).map(_.toMap).getOrElse(Map()).asJava
+
+    val out = AvroSchemaStore.get(schemaId).map(s =>
+      new GenericRecordBuilder(s)
+        .set(CountKey, count + 1)
+        .set(AverageKey, cavgs)
+        .build()
+    )
+    out
+  }
+
+  override def stateReduce(gr1: GenericRecord, gr2: GenericRecord): GenericRecord = {
+    val count1 = Option(gr1.get(CountKey)).asInt.getOrElse(0)
+    val count2 = Option(gr2.get(CountKey)).asInt.getOrElse(0)
+    val currentTotalCount = count1 + count2
+
+    val currentAvgs1 = Option(gr1.get(AverageKey)).asMap[String, Double].getOrElse(Map())
+    val currentAvgs2 = Option(gr2.get(AverageKey)).asMap[String, Double].getOrElse(Map())
+
+    val currentAvgs = currentAvgs1.map(cat1 =>
+      (cat1._1, currentAvgs2.get(cat1._1)
+        .map(ca2 => ((count1 * cat1._2) + (count2 * ca2)) / currentTotalCount ).getOrElse(0.0))).asJava
+
+    val out = AvroSchemaStore.get(schemaId).map(s =>
+      new GenericRecordBuilder(s)
+        .set(CountKey, currentTotalCount)
+        .set(AverageKey, currentAvgs)
+        .build()
+    ).get
+    out
   }
 
 
@@ -64,39 +110,5 @@ class SparkBasicStatsProcessor extends SparkStreamingBase
 
   override def fields: Set[ProcessorSchemaField] = Set(ProcessorSchemaField(AverageKey, PropertyType.Double))
 
-  override def schemaId = "org.dcs.test.person"
-
-//  def main(args: Array[String]): Unit = {
-//
-//    val slideDuration = Seconds(2)
-//
-//    val PersonSchemaId = "org.dcs.test.person"
-//    val personSchema: Option[Schema] = AvroSchemaStore.get(PersonSchemaId)
-//
-//    val person1 = new GenericData.Record(personSchema.get)
-//    person1.put("name", "Grace Hopper")
-//    person1.put("age", 85)
-//    person1.put("gender", "female")
-//
-//    val person2 = new GenericData.Record(personSchema.get)
-//    person2.put("name", "Margaret Heafield Hamilton")
-//    person2.put("age", 80)
-//    person2.put("gender", "female")
-//
-//    val props: JavaMap[String, String] = new util.HashMap()
-//    props.put(CoreProperties.ReadSchemaIdKey, PersonSchemaId)
-//
-//    val inputList = List(person1.serToBytes(personSchema), person2.serToBytes(personSchema))
-//    val receiver = ListReceiver(inputList, slideDuration.milliseconds + 1000)
-//
-//    val sender = PrintSender(personSchema)
-//
-//    RunSpark.launch(SparkStreamingBase.localSettings(),
-//      receiver,
-//      sender,
-//      this,
-//      props,
-//      false)
-//  }
 }
 
