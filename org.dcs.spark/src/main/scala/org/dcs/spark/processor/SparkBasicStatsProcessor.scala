@@ -8,7 +8,7 @@ import org.apache.spark.streaming.{State, Time}
 import org.dcs.api.processor.RelationshipType._
 import org.dcs.api.processor._
 import org.dcs.commons.serde.AvroSchemaStore
-import org.dcs.spark.{SparkStreamingBase, SparkUtils}
+import org.dcs.spark.{SparkStreamingBase, SparkStreamingStateBase, SparkUtils}
 
 import scala.collection.JavaConverters._
 
@@ -29,14 +29,14 @@ object SparkBasicStatsProcessor {
 /**
   * Created by cmathew on 09.11.16.
   */
-class SparkBasicStatsProcessor extends SparkStreamingBase
+class SparkBasicStatsProcessor extends SparkStreamingStateBase
   with FieldsToMap
   with Ingestion {
 
   import SparkBasicStatsProcessor._
 
 
-  override def initialState(): GenericRecord = {
+  override def stateZero(): GenericRecord = {
     AvroSchemaStore.get(schemaId).map(s =>
       new GenericRecordBuilder(s)
         .set(CountKey, 0)
@@ -109,6 +109,7 @@ class SparkBasicStatsProcessor extends SparkStreamingBase
   override def _properties(): List[RemoteProperty] = List()
 
   override def fields: Set[ProcessorSchemaField] = Set(ProcessorSchemaField(AverageKey, PropertyType.Double))
+
 
 }
 

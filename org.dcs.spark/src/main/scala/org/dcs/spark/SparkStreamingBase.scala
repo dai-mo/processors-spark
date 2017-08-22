@@ -1,35 +1,35 @@
 package org.dcs.spark
 
+import java.io.File
 import java.util
-import java.util.{Map => JavaMap}
+import java.util.{List => JavaList, Map => JavaMap}
 
+import buildinfo.BuildInfo
 import com.esotericsoftware.kryo.io.{Input, Output}
 import com.esotericsoftware.kryo.{Kryo, Serializer}
-import org.apache.avro.data.Json
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.apache.spark.SparkConf
+import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import org.apache.spark.serializer.KryoRegistrator
 import org.apache.spark.streaming.dstream.{DStream, MapWithStateDStream}
 import org.apache.spark.streaming.receiver.Receiver
 import org.apache.spark.streaming.{Duration, Minutes, Seconds, State, StateSpec, StreamingContext, Time}
 import org.apache.spark.util.CollectionAccumulator
-import org.dcs.api.processor.{CoreProperties, RelationshipType, RemoteProcessor, StatefulRemoteProcessor}
+import org.dcs.api.processor._
 import org.dcs.commons.error.ErrorResponse
 import org.dcs.commons.serde.AvroImplicits._
 import org.dcs.commons.serde.AvroSchemaStore
 import org.dcs.spark.receiver.TestReceiver
-import org.dcs.spark.sender.{PrintSender, TestSender}
+import org.dcs.spark.sender.Sender
 
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Try}
 
-trait Sender[T] {
-  def createNewConnection(): Sender[T]
-  def send(record: T)
-  def close()
-}
+
 
 case class SparkStreamingSettings(conf: SparkConf,
                                   ssc: StreamingContext) {
+
   SparkStreamingBase.updateConf(conf)
 }
 
@@ -48,24 +48,43 @@ class GenRecSerializer extends Serializer[GenericData.Record] {
 }
 
 object SparkStreamingBase {
-  def localSettings(confSettings: Map[String, String] = Map(),
-                    batchDuration: Duration = Seconds(1)): SparkStreamingSettings = {
-    val conf = new SparkConf().setMaster("local[2]").setAppName("AlambeekSparkLocal")
+  val ReceiverKey = "spark.org.dcs.spark.receiver"
+  val SenderKey = "spark.org.dcs.spark.sender"
+
+  val SparkNameConfKey = "spark.app.name"
+  val SparkMasterConfKey = "spark.master"
+
+  val DefaultMaster = "local[2]"
+  val DefaultAppName = "AlambeekSparkLocal"
+
+  def settings(confSettings: Map[String, String] = Map(),
+               batchDuration: Duration = Seconds(1)): SparkStreamingSettings = {
+    val conf = new SparkConf()
     confSettings.foreach(cf => conf.setIfMissing(cf._1, cf._2))
-    val ssc = new StreamingContext(conf, Seconds(1))
+
+    val master = conf.get(SparkMasterConfKey, DefaultMaster)
+    val appName = conf.get(SparkMasterConfKey, DefaultAppName)
+    conf
+      .setMaster(master)
+      .setAppName(appName)
+    conf.getAll.foreach(c => SparkUtils.appLogger.warn("SparkConf ===>" + c))
+
+    val ssc = new StreamingContext(conf, batchDuration)
+
+    // FIXME: Make checkpoint dir configurable
     ssc.checkpoint("/tmp/checkpoint")
-    ssc.remember(Minutes(1))
+
     SparkStreamingSettings(conf, ssc)
   }
 
   def updateConf(conf: SparkConf): SparkConf = {
     conf
-//      .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-//      .set("spark.kryo.registrator", "org.dcs.spark.DCSRegistrator")
-//      .set("spark.kryo.registrationRequired", "true")
-//      .set("spark.kryo.classesToRegister","org.apache.avro.generic.GenericData.Record")
-//      .registerKryoClasses(Array(classOf[GenericData.Record]))
-//      .registerAvroSchemas(Json.SCHEMA)
+    //      .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    //      .set("spark.kryo.registrator", "org.dcs.spark.DCSRegistrator")
+    //      .set("spark.kryo.registrationRequired", "true")
+    //      .set("spark.kryo.classesToRegister","org.apache.avro.generic.GenericData.Record")
+    //      .registerKryoClasses(Array(classOf[GenericData.Record]))
+    //      .registerAvroSchemas(Json.SCHEMA)
   }
 
 
@@ -73,8 +92,11 @@ object SparkStreamingBase {
            args: Array[String]) = {
     val props: JavaMap[String, String] = new util.HashMap()
 
-    val settings = SparkStreamingBase.localSettings()
-    val receiver: Receiver[(Int, Array[Byte])] = System.getProperty("org.dcs.spark.receiver") match {
+    val settings = SparkStreamingBase.settings()
+
+    SparkUtils.appLogger.warn("System Properties ===>" + System.getProperties)
+
+    val receiver: Receiver[(Int, Array[Byte])] = System.getProperty(ReceiverKey) match {
       case "org.dcs.spark.receiver.TestReceiver" => {
         props.putAll(TestReceiver.props)
         TestReceiver(props, 1000, 100)
@@ -82,14 +104,11 @@ object SparkStreamingBase {
       case _ => throw new IllegalArgumentException("No known receiver has been set (org.dcs.spark.receiver)")
     }
 
-    val sender:Sender[Array[Array[Byte]]] =  System.getProperty("org.dcs.spark.sender") match {
-      case "org.dcs.spark.sender.TestSender" => TestSender()
-      case _ => throw new IllegalArgumentException("No known sender has been set (org.dcs.spark.sender)")
-    }
+    val sender: Sender[Array[Array[Byte]]] = Sender.get(None)
 
     RunSpark.launch(settings,
       receiver,
-      sender,
+      sender.getClass.getName,
       sparkStreamingBase,
       props)
   }
@@ -100,12 +119,12 @@ object RunSpark {
 
   def launch(settings: SparkStreamingSettings,
              receiver: Receiver[(Int, Array[Byte])],
-             sender: Sender[Array[Array[Byte]]],
+             senderClassName: String,
              ssb: SparkStreamingBase,
              props: JavaMap[String, String],
              awaitTermination: Boolean = true): Unit = {
     init(settings, ssb, props)
-    setup(settings, receiver, sender, ssb, props)
+    ssb.setup(settings, receiver, senderClassName)
     start(settings, awaitTermination)
   }
 
@@ -116,14 +135,6 @@ object RunSpark {
       settings.ssc.sparkContext.collectionAccumulator[Throwable])
   }
 
-  def setup(settings: SparkStreamingSettings,
-            receiver: Receiver[(Int,Array[Byte])],
-            sender: Sender[Array[Array[Byte]]],
-            ssb: SparkStreamingBase,
-            props: JavaMap[String, String]) {
-    val stream: DStream[(Int, Array[Byte])] = settings.ssc.receiverStream(receiver)
-    ssb.send(ssb.trigger(stream), sender)
-  }
 
   def start(settings: SparkStreamingSettings,
             awaitTermination: Boolean = true): Unit = {
@@ -134,12 +145,62 @@ object RunSpark {
 }
 
 
-trait SparkStreamingBase  extends RemoteProcessor with Serializable {
+trait SparkStreamingBase  extends StatefulRemoteProcessor with Serializable {
+  import SparkStreamingBase._
 
+  protected var props: JavaMap[String, String] = _
+  protected var errors: CollectionAccumulator[Throwable] = _
 
-  var props: JavaMap[String, String] = _
-  var errors: CollectionAccumulator[Throwable] = _
+  private var sparkHandle: SparkAppHandle = _
+  private var sparkLauncher: SparkLauncher = _
 
+  val SPARK_HOME = "SPARK_HOME"
+
+  override def initState(): Unit = {
+    // NOTE: This requires the SPARK_HOME to be set
+    //       and the dcs spark jar be copied to the
+    //       SPARK_HOME dir
+    val sparkHome = sys.env(SPARK_HOME)
+    val dcsSparkJar = "org.dcs.spark-assembly-" + BuildInfo.version + ".jar"
+    sparkLauncher = new SparkLauncher()
+      .setAppResource(sparkHome + File.separator + dcsSparkJar)
+      .setMainClass(this.className)
+      .setMaster(DefaultMaster)
+      .setAppName(DefaultAppName)
+      .setConf(SparkLauncher.DRIVER_MEMORY, "2g")
+  }
+
+  override def onSchedule(propertyValues: JavaMap[RemoteProperty, String]): Boolean = {
+    // FIXME: Use the propertyValues to set spark launcher config
+    val receiver = propertyValues.asScala.find(_._1.getName == ReceiverKey).map(_._2)
+    val sender = propertyValues.asScala.find(_._1.getName == SenderKey).map(_._2)
+
+    if(receiver.isDefined && sender.isDefined) {
+      sparkLauncher = sparkLauncher
+        .setConf(ReceiverKey, receiver.get)
+        .setConf(SenderKey, sender.get)
+      sparkHandle = sparkLauncher.startApplication()
+      true
+    } else
+      throw new IllegalArgumentException
+  }
+
+  override def onStop(propertyValues: JavaMap[RemoteProperty, String]): Boolean = {
+    true
+  }
+
+  override def onShutdown(propertyValues: JavaMap[RemoteProperty, String]): Boolean = {
+    onRemove(propertyValues)
+  }
+
+  override def onRemove(propertyValues: JavaMap[RemoteProperty, String]): Boolean = {
+    if(sparkHandle.getState == SparkAppHandle.State.RUNNING) {
+      // FIXME: Need to figure out why stop does not work
+      // sparkHandle.stop()
+      sparkHandle.kill()
+    }
+    true
+  }
 
   def init(props: JavaMap[String, String],
            errors: CollectionAccumulator[Throwable]) {
@@ -147,17 +208,19 @@ trait SparkStreamingBase  extends RemoteProcessor with Serializable {
     this.errors = errors
   }
 
+  def setup(settings: SparkStreamingSettings,
+            receiver: Receiver[(Int,Array[Byte])],
+            senderClassName: String) {
+    val stream: DStream[(Int, Array[Byte])] = settings.ssc.receiverStream(receiver)
+    send(trigger(stream), senderClassName)
+  }
 
   override def execute(record: Option[GenericRecord], propertyValues: util.Map[String, String]): List[Either[ErrorResponse, (String, GenericRecord)]] = {
     throw new UnsupportedOperationException
   }
 
-  def trigger(stream: DStream[(Int, Array[Byte])]): MapWithStateDStream[Int,Array[Byte], Array[Byte], (Int,Array[Byte])] = {
-    stream.map(in => (in._1 % 2, in._2))
-      .mapWithState(StateSpec
-        .function(stateUpdateFunction(props) _)
-        .numPartitions(2)
-        .timeout(Seconds(60)))
+  def trigger(stream: DStream[(Int, Array[Byte])]): DStream[(Int, Array[Byte])] = {
+    stream
   }
 
   def deser(stream: DStream[(Int,Array[Byte])]): DStream[(Int, GenericRecord)] = {
@@ -174,18 +237,44 @@ trait SparkStreamingBase  extends RemoteProcessor with Serializable {
     })
   }
 
-  def send(stream: MapWithStateDStream[Int,Array[Byte], Array[Byte], (Int, Array[Byte])],
-           sender: Sender[Array[Array[Byte]]]): Unit = {
-    stream.stateSnapshots().reduce(reduceStateFunction _)
+
+  def send(stream: DStream[(Int, Array[Byte])], senderClassName: String): Unit = {
+    stream
       .foreachRDD {rdd =>
         rdd.foreachPartition {partitionOfRecords =>
-          val connection = sender.createNewConnection ()
+
+          val sender: Sender[Array[Array[Byte]]] = Sender.get(Some(senderClassName))
+          sender.createNewConnection()
           partitionOfRecords.foreach (out =>
             sender.send(Array(RelationshipType.Success.id.getBytes, out._2))
           )
-          connection.close()
+          sender.close()
         }
       }
+  }
+
+
+}
+
+trait SparkStreamingStateBase extends SparkStreamingBase {
+
+  override def setup(settings: SparkStreamingSettings,
+                     receiver: Receiver[(Int,Array[Byte])],
+                     senderClassName: String) {
+    val stream: DStream[(Int, Array[Byte])] = settings.ssc.receiverStream(receiver)
+    stateSend(stateTrigger(stream), senderClassName)
+  }
+
+  def stateTrigger(stream: DStream[(Int, Array[Byte])]): MapWithStateDStream[Int,Array[Byte], Array[Byte], (Int,Array[Byte])] = {
+    trigger(stream).map(in => (in._1 % 2, in._2))
+      .mapWithState(StateSpec
+        .function(stateUpdateFunction(props) _)
+        .numPartitions(2)
+        .timeout(Seconds(60)))
+  }
+
+  def stateSend(stream: MapWithStateDStream[Int,Array[Byte], Array[Byte], (Int, Array[Byte])], senderClassName: String): Unit = {
+    send(stream.stateSnapshots().reduce(reduceStateFunction _), senderClassName)
   }
 
 
@@ -196,7 +285,7 @@ trait SparkStreamingBase  extends RemoteProcessor with Serializable {
                           state: State[Array[Byte]]): Option[(Int, Array[Byte])] = {
     val (rs, ws) = resolveSchemas(true, props)
     val schema = AvroSchemaStore.get(schemaId)
-    val grState = state.getOption().flatMap(s => inputToGenericRecord(s, schema, schema)).getOrElse(initialState())
+    val grState = state.getOption().flatMap(s => inputToGenericRecord(s, schema, schema)).getOrElse(stateZero())
 
     val out = record.flatMap(r => stateUpdate(props)(batchTime, id, inputToGenericRecord(r, rs, ws), grState)
       .map(res => {
@@ -210,16 +299,15 @@ trait SparkStreamingBase  extends RemoteProcessor with Serializable {
     out.map((id, _))
   }
 
-  def stateUpdate(props: JavaMap[String, String])(batchTime: Time,id: Int, record: Option[GenericRecord], state: GenericRecord): Option[GenericRecord]
-
   def reduceStateFunction(r1: (Int, Array[Byte]), r2: (Int, Array[Byte])): (Int, Array[Byte]) = {
     val schema = AvroSchemaStore.get(schemaId)
     (r2._1, stateReduce(inputToGenericRecord(r1._2, schema, schema).get, inputToGenericRecord(r2._2, schema, schema).get)
       .serToBytes(schema))
   }
 
+  def stateUpdate(props: JavaMap[String, String])(batchTime: Time,id: Int, record: Option[GenericRecord], state: GenericRecord): Option[GenericRecord]
+
   def stateReduce(gr1: GenericRecord, gr2: GenericRecord): GenericRecord
 
-  def initialState(): GenericRecord
-
+  def stateZero(): GenericRecord
 }
