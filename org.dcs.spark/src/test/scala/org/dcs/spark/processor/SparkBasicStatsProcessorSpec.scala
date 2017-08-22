@@ -4,13 +4,13 @@ import java.util.{Map => JavaMap}
 
 import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.spark.streaming.Seconds
-import org.dcs.api.processor.RelationshipType
+import org.dcs.api.processor.{RelationshipType, RemoteProperty}
 import org.dcs.commons.serde.AvroImplicits._
 import org.dcs.commons.serde.AvroSchemaStore
-import org.dcs.spark.RunSpark
 import org.dcs.spark.processor.SparkBasicStatsProcessor.{AverageKey, CountKey}
 import org.dcs.spark.receiver.{IncrementalReceiver, TestReceiver}
-import org.dcs.spark.sender.AccSender
+import org.dcs.spark.sender.{AccSender, Sender}
+import org.dcs.spark.{RunSpark, SparkStreamingBase}
 import org.scalatest.time.{Millis, Span}
 
 import scala.collection.JavaConverters._
@@ -27,11 +27,9 @@ class SparkBasicStatsProcessorSpec extends SparkStreamingSpec {
 
     Given("streaming context is initialized")
 
-
+    Sender.add(AccSender(SparkStreamingSpec.TestAcc))
 
     val receiver = IncrementalReceiver(slideDuration.milliseconds + 1000)
-
-    val sender = AccSender(SparkStreamingSpec.TestAcc)
 
     val schema = AvroSchemaStore.get("org.dcs.spark.processor.SparkBasicStatsProcessor")
     val result = Array(RelationshipType.Success.id.getBytes(), schema.map(s =>
@@ -43,7 +41,7 @@ class SparkBasicStatsProcessorSpec extends SparkStreamingSpec {
 
     RunSpark.launch(settings,
       receiver,
-      sender,
+      Sender.AccSenderClassName,
       SparkBasicStatsProcessor(),
       TestReceiver.props,
       false)
@@ -68,4 +66,5 @@ class SparkBasicStatsProcessorSpec extends SparkStreamingSpec {
     }
 
   }
+  
 }

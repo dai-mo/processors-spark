@@ -19,7 +19,7 @@ class SparkStreamingSpec extends SparkUnitFlatSpec {
 
   before {
     settings =
-      SparkStreamingBase.localSettings(Map(), //Map("spark.streaming.clock" -> "org.apache.spark.streaming.util.ManualClock"),
+      SparkStreamingBase.settings(Map(), //Map("spark.streaming.clock" -> "org.apache.spark.streaming.util.ManualClock"),
         batchDuration)
     settings.ssc.sparkContext.register(SparkStreamingSpec.TestAcc, "ResultAccumulator")
   }

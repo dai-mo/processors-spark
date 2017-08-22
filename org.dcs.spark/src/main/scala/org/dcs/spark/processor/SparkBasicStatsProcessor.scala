@@ -36,7 +36,7 @@ class SparkBasicStatsProcessor extends SparkStreamingStateBase
   import SparkBasicStatsProcessor._
 
 
-  override def initialState(): GenericRecord = {
+  override def stateZero(): GenericRecord = {
     AvroSchemaStore.get(schemaId).map(s =>
       new GenericRecordBuilder(s)
         .set(CountKey, 0)
@@ -109,6 +109,7 @@ class SparkBasicStatsProcessor extends SparkStreamingStateBase
   override def _properties(): List[RemoteProperty] = List()
 
   override def fields: Set[ProcessorSchemaField] = Set(ProcessorSchemaField(AverageKey, PropertyType.Double))
+
 
 }
 

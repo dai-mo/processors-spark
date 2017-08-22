@@ -1,9 +1,9 @@
 package org.dcs.spark.sender
 
 import org.apache.spark.util.AccumulatorV2
-import org.dcs.commons.serde.AvroSchemaStore
-import org.dcs.spark.{Sender, SparkUtils}
 import org.dcs.commons.serde.AvroImplicits._
+import org.dcs.commons.serde.AvroSchemaStore
+import org.dcs.spark.SparkUtils
 
 import scala.collection.mutable
 
