@@ -48,14 +48,16 @@ class GenRecSerializer extends Serializer[GenericData.Record] {
 }
 
 object SparkStreamingBase {
-  val ReceiverKey = "spark.org.dcs.spark.receiver"
-  val SenderKey = "spark.org.dcs.spark.sender"
+  val ReceiverKey = "org.dcs.spark.receiver"
+  val SenderKey = "org.dcs.spark.sender"
 
   val SparkNameConfKey = "spark.app.name"
   val SparkMasterConfKey = "spark.master"
 
   val DefaultMaster = "local[2]"
   val DefaultAppName = "AlambeekSparkLocal"
+
+  val SparkPrefix = "spark."
 
   def settings(confSettings: Map[String, String] = Map(),
                batchDuration: Duration = Seconds(1)): SparkStreamingSettings = {
@@ -87,24 +89,31 @@ object SparkStreamingBase {
     //      .registerAvroSchemas(Json.SCHEMA)
   }
 
+  def appendSparkPrefix(property: String): String = {
+    SparkPrefix + property
+  }
+
+  def removeSparkPrefix(property: String): String = {
+    property.replaceFirst("^" + SparkPrefix, "")
+  }
 
   def main(sparkStreamingBase: SparkStreamingBase,
            args: Array[String]) = {
-    val props: JavaMap[String, String] = new util.HashMap()
+    val props: JavaMap[String, String] = System.getProperties.asScala.map(p => (removeSparkPrefix(p._1), p._2)).asJava
+
 
     val settings = SparkStreamingBase.settings()
 
-    SparkUtils.appLogger.warn("System Properties ===>" + System.getProperties)
+    SparkUtils.appLogger.warn("System Properties ===>" + props)
 
-    val receiver: Receiver[(Int, Array[Byte])] = System.getProperty(ReceiverKey) match {
+    val receiver: Receiver[(Int, Array[Byte])] = props.get(ReceiverKey) match {
       case "org.dcs.spark.receiver.TestReceiver" => {
-        props.putAll(TestReceiver.props)
-        TestReceiver(props, 1000, 100)
+        TestReceiver(1000, 100)
       }
       case _ => throw new IllegalArgumentException("No known receiver has been set (org.dcs.spark.receiver)")
     }
 
-    val sender: Sender[Array[Array[Byte]]] = Sender.get(None)
+    val sender: Sender[Array[Array[Byte]]] = Sender.get(props)
 
     RunSpark.launch(settings,
       receiver,
@@ -171,14 +180,14 @@ trait SparkStreamingBase  extends StatefulRemoteProcessor with Serializable {
   }
 
   override def onSchedule(propertyValues: JavaMap[RemoteProperty, String]): Boolean = {
-    // FIXME: Use the propertyValues to set spark launcher config
     val receiver = propertyValues.asScala.find(_._1.getName == ReceiverKey).map(_._2)
     val sender = propertyValues.asScala.find(_._1.getName == SenderKey).map(_._2)
+    val readSchemaId = propertyValues.asScala.find(_._1.getName == CoreProperties.ReadSchemaIdKey).map(_._2)
 
-    if(receiver.isDefined && sender.isDefined) {
-      sparkLauncher = sparkLauncher
-        .setConf(ReceiverKey, receiver.get)
-        .setConf(SenderKey, sender.get)
+    if(receiver.isDefined && sender.isDefined && readSchemaId.isDefined) {
+      propertyValues.asScala.foreach(pv =>
+        sparkLauncher = sparkLauncher.setConf(appendSparkPrefix(pv._1.getName()), pv._2)
+      )
       sparkHandle = sparkLauncher.startApplication()
       true
     } else

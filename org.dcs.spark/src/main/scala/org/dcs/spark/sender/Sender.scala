@@ -2,6 +2,7 @@ package org.dcs.spark.sender
 
 import org.dcs.spark.SparkStreamingBase.SenderKey
 import org.dcs.spark.SparkUtils
+import java.util.{List => JavaList, Map => JavaMap}
 
 object Sender {
   // FIXME: Replace these with dynamic class names of sender types
@@ -27,6 +28,10 @@ object Sender {
           case TestFileSenderClassName => add(TestFileSender("log/test.out"))
           case _ => throw new IllegalArgumentException("No known sender has been set (org.dcs.spark.sender)")
         })
+  }
+
+  def get(props: JavaMap[String, String]):Sender[Array[Array[Byte]]] = {
+    get(Option(props.get(SenderKey)))
   }
 }
 

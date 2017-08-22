@@ -32,11 +32,11 @@ object TestReceiver {
   Person2.put("age", 80)
   Person2.put("gender", "female")
 
-  val fieldsToMap = Set(ProcessorSchemaField(AverageKey, PropertyType.Double, JsonPath.Root + JsonPath.Sep + "age"))
+  val FieldsToMap = Set(ProcessorSchemaField(AverageKey, PropertyType.Double, JsonPath.Root + JsonPath.Sep + "age"))
 
   val props: JavaMap[String, String] = new util.HashMap()
   props.put(CoreProperties.ReadSchemaIdKey, TestReceiver.PersonSchemaId)
-  props.put(CoreProperties.FieldsToMapKey, fieldsToMap.toJson)
+  props.put(CoreProperties.FieldsToMapKey, FieldsToMap.toJson)
 
 
   def plist(noOfRecords: Int) = Range.inclusive(1,noOfRecords).map(i => new GenericRecordBuilder(PersonSchema.get)
@@ -46,7 +46,7 @@ object TestReceiver {
     .build()
     .serToBytes(PersonSchema)).toList
 
-  def apply(props: JavaMap[String, String], delay: Long, noOfRecords: Int): ListReceiver = {
+  def apply(delay: Long, noOfRecords: Int): ListReceiver = {
     val inputList = plist(noOfRecords)
     ListReceiver(inputList, PersonSchemaId, delay)
   }

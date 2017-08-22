@@ -38,6 +38,7 @@ class SparkBasicStatsProcessorSpec extends SparkStreamingSpec {
         .set(AverageKey, Map("$.age" -> 1.0).asJava)
         .build().serToBytes(Some(s))
     ).get)
+    
 
     RunSpark.launch(settings,
       receiver,
