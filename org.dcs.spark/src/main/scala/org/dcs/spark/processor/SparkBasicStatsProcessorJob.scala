@@ -12,28 +12,26 @@ import org.dcs.spark.{SparkStreamingBase, SparkStreamingStateBase, SparkUtils}
 
 import scala.collection.JavaConverters._
 
-
-object SparkBasicStatsProcessor {
-  val AverageKey = "average"
-  val CountKey = "count"
-
-  def apply(): SparkBasicStatsProcessor = {
-    new SparkBasicStatsProcessor()
-  }
-
-  def main(args: Array[String]): Unit = {
-    SparkStreamingBase.main(new SparkBasicStatsProcessor(), args)
-  }
-}
-
 /**
   * Created by cmathew on 09.11.16.
   */
-class SparkBasicStatsProcessor extends SparkStreamingStateBase
-  with FieldsToMap
-  with Ingestion {
+object SparkBasicStatsProcessorJob {
+  val AverageKey = "average"
+  val CountKey = "count"
 
-  import SparkBasicStatsProcessor._
+  def apply(): SparkBasicStatsProcessorJob = {
+    new SparkBasicStatsProcessorJob()
+  }
+
+  def main(args: Array[String]): Unit = {
+    SparkStreamingBase.main(new SparkBasicStatsProcessorJob(), args)
+  }
+}
+
+class SparkBasicStatsProcessorJob extends SparkStreamingStateBase
+  with FieldsToMap {
+
+  import SparkBasicStatsProcessorJob._
 
 
   override def stateZero(): GenericRecord = {
@@ -94,22 +92,7 @@ class SparkBasicStatsProcessor extends SparkStreamingStateBase
     out
   }
 
-
-  override def _relationships(): Set[RemoteRelationship] = {
-    Set(Success)
-  }
-
-
-  override def metadata(): MetaData =
-    MetaData(description =  "Spark Basic Statistics Processor",
-      tags = List("Spark", "Statistics"))
-
-
-
-  override def _properties(): List[RemoteProperty] = List()
-
   override def fields: Set[ProcessorSchemaField] = Set(ProcessorSchemaField(AverageKey, PropertyType.Double))
-
 
 }
 

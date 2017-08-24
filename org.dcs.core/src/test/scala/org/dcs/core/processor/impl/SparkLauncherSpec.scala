@@ -1,14 +1,10 @@
-package org.dcs.spark.processor
-
-import java.util.{Map => JavaMap}
+package org.dcs.core.processor.impl
 
 import org.dcs.api.processor.{CoreProperties, RemoteProperty}
-import org.dcs.commons.serde.JsonSerializerImplicits._
-import org.dcs.spark.SparkStreamingBase
+import org.dcs.core.processor.SparkBasicStatsProcessor
+import org.dcs.spark.processor.SparkUnitFlatSpec
 import org.dcs.spark.receiver.TestReceiver
-import org.dcs.spark.receiver.TestReceiver.PersonSchemaId
-import org.scalatest.Ignore
-
+import org.dcs.commons.serde.JsonSerializerImplicits._
 import scala.collection.JavaConverters._
 
 //@Ignore
@@ -20,15 +16,15 @@ class SparkLauncherSpec extends SparkUnitFlatSpec {
     val processor = SparkBasicStatsProcessor()
     processor.initState()
 
-    val receiverProperty = RemoteProperty(SparkStreamingBase.ReceiverKey, SparkStreamingBase.ReceiverKey, "")
-    val senderProperty = RemoteProperty(SparkStreamingBase.SenderKey, SparkStreamingBase.SenderKey, "")
+    val receiverProperty = RemoteProperty(CoreProperties.ReceiverKey, CoreProperties.ReceiverKey, "")
+    val senderProperty = RemoteProperty(CoreProperties.SenderKey, CoreProperties.SenderKey, "")
     val fieldsToMapProperty = CoreProperties.fieldsToMapProperty(SparkBasicStatsProcessor().fields)
     val readSchemaIdProperty = CoreProperties.readSchemaIdProperty()
 
     val propertyValues = Map(
       receiverProperty -> "org.dcs.spark.receiver.TestReceiver",
-      senderProperty -> "org.dcs.spark.sender.TestFileSender",
-      readSchemaIdProperty -> PersonSchemaId,
+      senderProperty -> "org.dcs.spark.sender.TestSender",
+      readSchemaIdProperty -> TestReceiver.PersonSchemaId,
       fieldsToMapProperty -> TestReceiver.FieldsToMap.toJson
     ).asJava
 

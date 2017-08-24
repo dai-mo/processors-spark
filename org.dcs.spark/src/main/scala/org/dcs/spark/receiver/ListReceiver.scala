@@ -1,19 +1,19 @@
 package org.dcs.spark.receiver
 
 import java.util
+import java.util.{Map => JavaMap}
 
 import org.apache.avro.Schema
-import org.apache.avro.generic.{GenericData, GenericRecordBuilder}
+import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.receiver.Receiver
 import org.dcs.api.processor.{CoreProperties, ProcessorSchemaField, PropertyType}
-import org.dcs.commons.serde.{AvroSchemaStore, JsonPath}
-import java.util.{Map => JavaMap}
-
 import org.dcs.commons.serde.AvroImplicits._
-import org.dcs.spark.processor.SparkBasicStatsProcessor.AverageKey
 import org.dcs.commons.serde.JsonSerializerImplicits._
+import org.dcs.commons.serde.{AvroSchemaStore, JsonPath}
 import org.dcs.spark.SparkUtils
+import org.dcs.spark.processor.SparkBasicStatsProcessorJob.AverageKey
+import scala.collection.JavaConverters._
 
 
 
@@ -22,21 +22,15 @@ object TestReceiver {
 
   val PersonSchema: Option[Schema] = AvroSchemaStore.get(PersonSchemaId)
 
-  val Person1 = new GenericData.Record(PersonSchema.get)
-  Person1.put("name", "Grace Hopper")
-  Person1.put("age", 85)
-  Person1.put("gender", "female")
-
-  val Person2 = new GenericData.Record(PersonSchema.get)
-  Person2.put("name", "Margaret Heafield Hamilton")
-  Person2.put("age", 80)
-  Person2.put("gender", "female")
+  val SparkBasicStatsProcessorClassName = "org.dcs.core.processor.SparkBasicStatsProcessor"
 
   val FieldsToMap = Set(ProcessorSchemaField(AverageKey, PropertyType.Double, JsonPath.Root + JsonPath.Sep + "age"))
 
-  val props: JavaMap[String, String] = new util.HashMap()
+  val props: JavaMap[String, String] = new util.HashMap[String, String]().asScala.asJava
   props.put(CoreProperties.ReadSchemaIdKey, TestReceiver.PersonSchemaId)
   props.put(CoreProperties.FieldsToMapKey, FieldsToMap.toJson)
+  props.put(CoreProperties.ProcessorClassKey, SparkBasicStatsProcessorClassName)
+  props.put(CoreProperties.SchemaIdKey, SparkBasicStatsProcessorClassName)
 
 
   def plist(noOfRecords: Int) = Range.inclusive(1,noOfRecords).map(i => new GenericRecordBuilder(PersonSchema.get)

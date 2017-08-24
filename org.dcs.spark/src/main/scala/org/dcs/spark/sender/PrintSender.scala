@@ -8,7 +8,7 @@ import org.dcs.spark.SparkUtils
 
 object TestSender {
   def apply(): PrintSender = {
-    new PrintSender("org.dcs.spark.processor.SparkBasicStatsProcessor")
+    new PrintSender("org.dcs.core.processor.SparkBasicStatsProcessor")
   }
 }
 
