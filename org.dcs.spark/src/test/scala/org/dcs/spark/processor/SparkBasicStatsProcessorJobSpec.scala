@@ -1,17 +1,15 @@
 package org.dcs.spark.processor
 
-import java.util.{Map => JavaMap}
-
 import org.apache.avro.generic.GenericRecordBuilder
 import org.apache.spark.streaming.Seconds
 import org.dcs.api.Constants
-import org.dcs.api.processor.{RelationshipType, RemoteProperty}
+import org.dcs.api.processor.RelationshipType
 import org.dcs.commons.serde.AvroImplicits._
 import org.dcs.commons.serde.AvroSchemaStore
+import org.dcs.spark.RunSpark
 import org.dcs.spark.processor.SparkBasicStatsProcessorJob.{AverageKey, CountKey}
 import org.dcs.spark.receiver.{IncrementalReceiver, TestReceiver}
 import org.dcs.spark.sender.{AccSender, Sender}
-import org.dcs.spark.{RunSpark, SparkStreamingBase}
 import org.scalatest.time.{Millis, Span}
 
 import scala.collection.JavaConverters._
