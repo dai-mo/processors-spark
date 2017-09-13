@@ -4,6 +4,7 @@ import java.util
 import java.util.{Map => JavaMap}
 
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
+import org.apache.avro.util.Utf8
 import org.apache.spark.streaming.{State, Time}
 import org.dcs.api.processor.RelationshipType._
 import org.dcs.api.processor._
@@ -12,28 +13,26 @@ import org.dcs.spark.{SparkStreamingBase, SparkStreamingStateBase, SparkUtils}
 
 import scala.collection.JavaConverters._
 
-
-object SparkBasicStatsProcessor {
-  val AverageKey = "average"
-  val CountKey = "count"
-
-  def apply(): SparkBasicStatsProcessor = {
-    new SparkBasicStatsProcessor()
-  }
-
-  def main(args: Array[String]): Unit = {
-    SparkStreamingBase.main(new SparkBasicStatsProcessor(), args)
-  }
-}
-
 /**
   * Created by cmathew on 09.11.16.
   */
-class SparkBasicStatsProcessor extends SparkStreamingStateBase
-  with FieldsToMap
-  with Ingestion {
+object SparkBasicStatsProcessorJob {
+  val AverageKey = "average"
+  val CountKey = "count"
 
-  import SparkBasicStatsProcessor._
+  def apply(): SparkBasicStatsProcessorJob = {
+    new SparkBasicStatsProcessorJob()
+  }
+
+  def main(args: Array[String]): Unit = {
+    SparkStreamingBase.main(new SparkBasicStatsProcessorJob(), args)
+  }
+}
+
+class SparkBasicStatsProcessorJob extends SparkStreamingStateBase
+  with FieldsToMap {
+
+  import SparkBasicStatsProcessorJob._
 
 
   override def stateZero(): GenericRecord = {
@@ -54,11 +53,11 @@ class SparkBasicStatsProcessor extends SparkStreamingStateBase
     val avgs = m.get(AverageKey).asList[(String, Int)]
 
     val count = Option(state.get(CountKey)).asInt.getOrElse(0)
-    val currentAvgs = Option(state.get(AverageKey)).asMap[String, Double].getOrElse(Map())
+    val currentAvgs = Option(state.get(AverageKey)).asMap[Utf8, Double].getOrElse(Map())
 
     val cavgs = avgs.map(ma =>
       ma.map(a =>{
-        val cavg = currentAvgs.getOrElse(a._1, 0.0)
+        val cavg = currentAvgs.getOrElse(new Utf8(a._1), 0.0)
         val avg = (a._2 + cavg * count) / (count + 1)
         (a._1, avg)
       })
@@ -94,22 +93,7 @@ class SparkBasicStatsProcessor extends SparkStreamingStateBase
     out
   }
 
-
-  override def _relationships(): Set[RemoteRelationship] = {
-    Set(Success)
-  }
-
-
-  override def metadata(): MetaData =
-    MetaData(description =  "Spark Basic Statistics Processor",
-      tags = List("Spark", "Statistics"))
-
-
-
-  override def _properties(): List[RemoteProperty] = List()
-
   override def fields: Set[ProcessorSchemaField] = Set(ProcessorSchemaField(AverageKey, PropertyType.Double))
-
 
 }
 
