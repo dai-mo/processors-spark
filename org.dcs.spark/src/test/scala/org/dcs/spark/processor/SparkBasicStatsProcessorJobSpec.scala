@@ -5,11 +5,11 @@ import org.apache.spark.streaming.Seconds
 import org.dcs.api.Constants
 import org.dcs.api.processor.RelationshipType
 import org.dcs.commons.serde.AvroImplicits._
-import org.dcs.commons.serde.AvroSchemaStore
+import org.dcs.commons.serde.{AvroSchemaStore, DataGenerator}
 import org.dcs.spark.RunSpark
 import org.dcs.spark.processor.SparkBasicStatsProcessorJob.{AverageKey, CountKey}
 import org.dcs.spark.receiver.{IncrementalReceiver, TestReceiver}
-import org.dcs.spark.sender.{AccSender, Sender}
+import org.dcs.spark.sender.{AccSender, SparkSender}
 import org.scalatest.time.{Millis, Span}
 
 import scala.collection.JavaConverters._
@@ -28,7 +28,7 @@ class SparkBasicStatsProcessorJobSpec extends SparkStreamingSpec {
 
     val schemaId = "org.dcs.core.processor.SparkBasicStatsProcessor"
 
-    Sender.add(AccSender(SparkStreamingSpec.TestAcc, schemaId))
+    SparkSender.add(Constants.AccSenderClassName, AccSender(Constants.AccSenderClassName, SparkStreamingSpec.TestAcc, schemaId))
 
     val receiver = IncrementalReceiver(slideDuration.milliseconds + 1000)
 
@@ -49,7 +49,7 @@ class SparkBasicStatsProcessorJobSpec extends SparkStreamingSpec {
       TestReceiver.props,
       false)
 
-    val records = TestReceiver.plist(5)
+    val records = DataGenerator.personsSer(5)
     receiver.add(records.head)
 
     When("first data record is added to the input stream")
@@ -66,6 +66,16 @@ class SparkBasicStatsProcessorJobSpec extends SparkStreamingSpec {
     eventually {
       val gr = SparkStreamingSpec.TestAcc.value.apply(1).deSerToGenericRecord(schema, schema)
       gr.get(CountKey) should equal(2)
+    }
+
+
+    receiver.add(records.tail.tail.head)
+
+    When("third data record is added to the input stream")
+    Then("basic stats computed eventually")
+    eventually {
+      val gr = SparkStreamingSpec.TestAcc.value.apply(1).deSerToGenericRecord(schema, schema)
+      gr.get(CountKey) should equal(3)
     }
 
   }

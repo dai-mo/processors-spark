@@ -16,8 +16,8 @@ import org.dcs.api.Constants
 import org.dcs.api.processor._
 import org.dcs.commons.serde.AvroImplicits._
 import org.dcs.commons.serde.AvroSchemaStore
-import org.dcs.spark.receiver.Receiver
-import org.dcs.spark.sender.Sender
+import org.dcs.spark.receiver.SparkReceiver
+import org.dcs.spark.sender.SparkSender
 
 import scala.collection.JavaConverters._
 
@@ -90,13 +90,13 @@ object SparkStreamingBase {
 
     SparkUtils.appLogger.warn("System Properties ===>" + props)
 
-    val receiver: Receiver[(Int, Array[Byte])] = Receiver.get(props)
+    val receiver: SparkReceiver = SparkReceiver.get(props)
 
-    val sender: Sender[Array[Array[Byte]]] = Sender.get(props)
+    val sender: SparkSender[Array[Array[Byte]]] = SparkSender.get(props)
 
     RunSpark.launch(settings,
       receiver,
-      sender.getClass.getName,
+      sender.key,
       sparkStreamingBase,
       props)
   }
@@ -106,13 +106,13 @@ object SparkStreamingBase {
 object RunSpark {
 
   def launch(settings: SparkStreamingSettings,
-             receiver: Receiver[(Int, Array[Byte])],
-             senderClassName: String,
+             receiver: SparkReceiver,
+             senderWithArgs: String,
              ssb: SparkStreamingBase,
              props: JavaMap[String, String],
              awaitTermination: Boolean = true): Unit = {
     init(settings, ssb, props)
-    ssb.setup(settings, receiver, senderClassName)
+    ssb.setup(settings, receiver, senderWithArgs)
     start(settings, awaitTermination)
   }
 
@@ -147,9 +147,9 @@ trait SparkStreamingBase  extends Serializable
   }
 
   def setup(settings: SparkStreamingSettings,
-            receiver: Receiver[(Int,Array[Byte])],
+            receiver: SparkReceiver,
             senderClassName: String) {
-    val stream: DStream[(Int, Array[Byte])] = settings.ssc.receiverStream(receiver)
+    val stream: DStream[(Int, Array[Byte])] = receiver.stream(settings.ssc)
     send(trigger(stream), senderClassName)
   }
 
@@ -175,11 +175,11 @@ trait SparkStreamingBase  extends Serializable
 //  }
 
 
-  def send(stream: DStream[(Int, Array[Byte])], senderClassName: String): Unit = {
+  def send(stream: DStream[(Int, Array[Byte])], senderWithArgs: String): Unit = {
     stream
       .foreachRDD {rdd =>
         rdd.foreachPartition {partitionOfRecords =>
-          val sender: Sender[Array[Array[Byte]]] = Sender.get(Some(senderClassName))
+          val sender: SparkSender[Array[Array[Byte]]] = SparkSender.get(senderWithArgs)
           sender.createNewConnection()
           partitionOfRecords.foreach (out =>
             sender.send(Array(RelationshipType.Success.id.getBytes, out._2))
@@ -200,9 +200,9 @@ trait SparkStreamingBase  extends Serializable
 trait SparkStreamingStateBase extends SparkStreamingBase {
 
   override def setup(settings: SparkStreamingSettings,
-                     receiver: Receiver[(Int,Array[Byte])],
+                     receiver: SparkReceiver,
                      senderClassName: String) {
-    val stream: DStream[(Int, Array[Byte])] = settings.ssc.receiverStream(receiver)
+    val stream: DStream[(Int, Array[Byte])] = receiver.stream(settings.ssc)
     stateSend(stateTrigger(stream), senderClassName)
   }
 

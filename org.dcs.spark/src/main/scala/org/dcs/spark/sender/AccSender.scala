@@ -31,12 +31,12 @@ class ResultAccumulator extends AccumulatorV2[Array[Array[Byte]], Array[Array[By
 }
 
 object AccSender {
-  def apply(resultAcc: ResultAccumulator, schemaId: String): AccSender = new AccSender(resultAcc, schemaId)
+  def apply(wa: String, resultAcc: ResultAccumulator, schemaId: String): AccSender = new AccSender(wa, resultAcc, schemaId)
 }
 
-class AccSender(resultAcc: ResultAccumulator, schemaId: String) extends Sender[Array[Array[Byte]]] with Serializable {
+class AccSender(wa: String, resultAcc: ResultAccumulator, schemaId: String) extends SparkSender[Array[Array[Byte]]] with Serializable {
 
-  override def createNewConnection(): Sender[Array[Array[Byte]]] = this
+  override def createNewConnection(): SparkSender[Array[Array[Byte]]] = this
 
   override def send(record: Array[Array[Byte]]): Unit = {
     val schema = AvroSchemaStore.get(schemaId)
@@ -50,4 +50,6 @@ class AccSender(resultAcc: ResultAccumulator, schemaId: String) extends Sender[A
   }
 
   def result: Array[Array[Byte]] = resultAcc.value
+
+  override def key(): String = wa
 }

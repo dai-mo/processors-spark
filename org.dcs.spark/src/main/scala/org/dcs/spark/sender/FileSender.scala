@@ -8,22 +8,22 @@ import org.dcs.commons.serde.AvroSchemaStore
 import org.dcs.spark.SparkUtils
 
 object TestFileSender {
-  def apply(fileName: String): FileSender = {
-    new FileSender("org.dcs.spark.processor.SparkBasicStatsProcessor", fileName)
+  def apply(wa: String, fileName: String): FileSender = {
+    new FileSender(wa, "org.dcs.spark.processor.SparkBasicStatsProcessor", fileName)
   }
 }
 
 object FileSender {
-  def apply(schemaId: String) : PrintSender =
-    new PrintSender(schemaId)
+  def apply(wa: String, schemaId: String) : PrintSender =
+    new PrintSender(wa, schemaId)
 }
 
-class FileSender(schemaId: String, fileName: String)
-  extends Sender[Array[Array[Byte]]] with Serializable {
+class FileSender(wa: String, schemaId: String, fileName: String)
+  extends SparkSender[Array[Array[Byte]]] with Serializable {
 
   var fileWriter = new FileWriter(fileName, true)
 
-  override def createNewConnection(): Sender[Array[Array[Byte]]] = {
+  override def createNewConnection(): SparkSender[Array[Array[Byte]]] = {
     fileWriter = new FileWriter(fileName, true)
     this
   }
@@ -39,4 +39,6 @@ class FileSender(schemaId: String, fileName: String)
   override def close(): Unit = {
     fileWriter.close()
   }
+
+  override def key(): String = wa
 }

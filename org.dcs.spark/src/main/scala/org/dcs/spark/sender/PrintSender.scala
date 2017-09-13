@@ -7,21 +7,21 @@ import org.dcs.spark.SparkUtils
 
 
 object TestSender {
-  def apply(): PrintSender = {
-    new PrintSender("org.dcs.core.processor.SparkBasicStatsProcessor")
+  def apply(wa: String): PrintSender = {
+    new PrintSender(wa, "org.dcs.core.processor.SparkBasicStatsProcessor")
   }
 }
 
 
 object PrintSender {
-  def apply(schemaId: String) : PrintSender =
-    new PrintSender(schemaId)
+  def apply(wa: String, schemaId: String) : PrintSender =
+    new PrintSender(wa, schemaId)
 }
 
-class PrintSender(schemaId: String)
-  extends Sender[Array[Array[Byte]]] with Serializable {
+class PrintSender(wa: String, schemaId: String)
+  extends SparkSender[Array[Array[Byte]]] with Serializable {
 
-  override def createNewConnection(): Sender[Array[Array[Byte]]] = this
+  override def createNewConnection(): SparkSender[Array[Array[Byte]]] = this
 
   override def send(output: Array[Array[Byte]]): Unit = {
     val schema: Option[Schema] = AvroSchemaStore.get(schemaId)
@@ -32,4 +32,6 @@ class PrintSender(schemaId: String)
   override def close(): Unit = {
 
   }
+
+  override def key(): String = wa
 }

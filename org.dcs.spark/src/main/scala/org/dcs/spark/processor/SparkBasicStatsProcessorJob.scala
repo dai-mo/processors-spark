@@ -4,6 +4,7 @@ import java.util
 import java.util.{Map => JavaMap}
 
 import org.apache.avro.generic.{GenericRecord, GenericRecordBuilder}
+import org.apache.avro.util.Utf8
 import org.apache.spark.streaming.{State, Time}
 import org.dcs.api.processor.RelationshipType._
 import org.dcs.api.processor._
@@ -52,11 +53,11 @@ class SparkBasicStatsProcessorJob extends SparkStreamingStateBase
     val avgs = m.get(AverageKey).asList[(String, Int)]
 
     val count = Option(state.get(CountKey)).asInt.getOrElse(0)
-    val currentAvgs = Option(state.get(AverageKey)).asMap[String, Double].getOrElse(Map())
+    val currentAvgs = Option(state.get(AverageKey)).asMap[Utf8, Double].getOrElse(Map())
 
     val cavgs = avgs.map(ma =>
       ma.map(a =>{
-        val cavg = currentAvgs.getOrElse(a._1, 0.0)
+        val cavg = currentAvgs.getOrElse(new Utf8(a._1), 0.0)
         val avg = (a._2 + cavg * count) / (count + 1)
         (a._1, avg)
       })
