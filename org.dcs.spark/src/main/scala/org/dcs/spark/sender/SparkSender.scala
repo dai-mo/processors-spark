@@ -3,7 +3,7 @@ package org.dcs.spark.sender
 import java.util.{List => JavaList, Map => JavaMap}
 
 import org.dcs.api.Constants
-import org.dcs.api.processor.CoreProperties
+import org.dcs.api.processor.ExternalProcessorProperties
 import org.dcs.api.util.WithArgs
 import org.dcs.spark.SparkUtils
 import org.dcs.spark.receiver.NifiSpark
@@ -34,7 +34,7 @@ object SparkSender {
   }
 
   def get(props: JavaMap[String, String]): SparkSender[Array[Array[Byte]]] = {
-    val sender = props.get(CoreProperties.SenderKey)
+    val sender = props.get(ExternalProcessorProperties.SenderKey)
     if(sender == null)
       throw new IllegalArgumentException("No sender has been set (org.dcs.spark.receiver)")
     get(sender)

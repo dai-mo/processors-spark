@@ -5,13 +5,13 @@ import java.util.{List => JavaList, Map => JavaMap}
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.DStream
 import org.dcs.api.Constants
-import org.dcs.api.processor.CoreProperties
+import org.dcs.api.processor.ExternalProcessorProperties
 import org.dcs.api.util.WithArgs
 
 object SparkReceiver {
 
   def get(props: JavaMap[String, String]): SparkReceiver = {
-    val receiver = props.get(CoreProperties.ReceiverKey)
+    val receiver = props.get(ExternalProcessorProperties.ReceiverKey)
     if(receiver == null)
       throw new IllegalArgumentException("No receiver has been set (org.dcs.spark.receiver)")
 
