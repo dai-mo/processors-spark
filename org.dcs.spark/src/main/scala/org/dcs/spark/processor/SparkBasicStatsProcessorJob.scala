@@ -50,18 +50,18 @@ class SparkBasicStatsProcessorJob extends SparkStreamingStateBase
                   record: Option[GenericRecord],
                   state: GenericRecord): Option[GenericRecord] = {
     val m = record.mappings(props)
-    val avgs = m.get(AverageKey).asList[(String, Int)]
+    val avgs = m.get(AverageKey).mappedValues[Double]
 
     val count = Option(state.get(CountKey)).asInt.getOrElse(0)
     val currentAvgs = Option(state.get(AverageKey)).asMap[Utf8, Double].getOrElse(Map())
 
-    val cavgs = avgs.map(ma =>
-      ma.map(a =>{
+    val cavgs = avgs.map(a => {
         val cavg = currentAvgs.getOrElse(new Utf8(a._1), 0.0)
         val avg = (a._2 + cavg * count) / (count + 1)
         (a._1, avg)
       })
-    ).map(_.toMap).getOrElse(Map()).asJava
+      .toMap
+      .asJava
 
     val out = AvroSchemaStore.get(schemaId).map(s =>
       new GenericRecordBuilder(s)
