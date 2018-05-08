@@ -6,7 +6,6 @@ object Dependencies {
 	lazy val dcsApiVersion    		 = "0.4.0"
 	lazy val dcsCommonsVersion     = "0.3.0"
 	lazy val dcsKaaClientVersion   = "0.3.0-SNAPSHOT"
-	lazy val dcsTestVersion   		 = "0.1.0"
 	lazy val paxCdiVersion    		 = "0.12.0"
 	lazy val cdiApiVersion    		 = "1.2"
 	lazy val logbackVersion   		 = "1.1.3"
@@ -33,8 +32,10 @@ object Dependencies {
 	lazy val slicklessVersion      = "0.3.0"
 	lazy val sparkVersion          = "2.2.0"
 	lazy val sparkTestingVersion   = "2.2.0_0.7.2"
+	lazy val mockitoVersion     = "1.10.19"
 
-  // FIXME: Currently we have duplicate entries for
+
+	// FIXME: Currently we have duplicate entries for
   //        typesafeConfig in here and in the
   //        project/build.sbt used for the build itself
 	lazy val typesafeConfigVersion = "1.3.1"
@@ -75,53 +76,10 @@ object Dependencies {
   val flyway          = "org.flywaydb"               %  "flyway-core"            % flywayVersion
   val typesafeConfig  = "com.typesafe"               %  "config"                 % typesafeConfigVersion
 
-	val dcsTest         = "org.dcs"                    % "org.dcs.test"            % dcsTestVersion
 	val scalaTest       = "org.scalatest"              %% "scalatest"              % scalaTestVersion
 	val junitInterface  = "com.novocode"               % "junit-interface"   			 % juiVersion
+	val mockitoAll      = "org.mockito"                % "mockito-all"             % mockitoVersion
 
-	// Dependencies
-	val coreDependencies: Seq[ModuleID] = Seq(
-		dcsApi          % "provided",
-    dcsCommons      % "provided",
-
-		avro            % "provided",
-		paxCdiApi       % "provided",
-		logbackCore     % "provided",
-		logbackClassic  % "provided",
-    cdiApi          % "provided",
-		openCsv,
-    guava,
-		dcsKaaClient,
-
-    sparkLauncher,
-
-		dcsTest         % "test",
-		scalaTest       % "test",
-		junitInterface  % "test"
-	)
-
-	def dataDependencies: Seq[ModuleID] = Seq(
-		dcsApi          % "provided",
-		dcsCommons      % "provided",
-		typesafeConfig,
-    slick,
-    // FIXME: This should be updated once the
-    //        slick-hikaricp osgi manifest issue,
-    //        https://github.com/slick/slick/issues/1694
-    //        is resolved
-		slickHikariCP   % "provided",
-    "com.zaxxer" % "HikariCP-java6" % "2.3.7",
-
-    slickCodeGen,
-    postgresDriver,
-    flyway,
-		logbackCore     % "provided",
-		logbackClassic  % "provided",
-
-		dcsTest         % "test",
-		scalaTest       % "test",
-		junitInterface  % "test"
-	)
 
 	val sparkDependencies: Seq[ModuleID] = Seq(
 		dcsApi,
@@ -130,10 +88,11 @@ object Dependencies {
 		sparkCore       % "provided",
 		sparkStreaming  % "provided",
 
-		dcsTest         % "test",
 		scalaTest       % "test",
 		junitInterface  % "test",
-		sparkTesting    % "test"
+		sparkTesting    % "test",
+		mockitoAll      % "test"
+
 	)
 
 }
