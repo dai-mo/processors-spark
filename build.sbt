@@ -9,7 +9,7 @@ val projectName = "org.dcs.spark"
 
 
 lazy val spark =
-  BaseProject("spark", projectName).
+  BaseProject("spark", projectName, Some(".")).
     enablePlugins(BuildInfoPlugin).
     settings(libraryDependencies ++= sparkDependencies).
     settings(test in assembly := {}).

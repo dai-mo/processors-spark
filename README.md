@@ -1,8 +1,1 @@
-Development Environment Setup
-=============================
-
-Pre-requisites
-
-
-Installation
- 
+Alambeek Spark Library
