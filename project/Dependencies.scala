@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 	// Versions
-	lazy val scVersion             = "2.11.7"
+	lazy val scVersion             = "2.11.8"
 	lazy val dcsApiVersion    		 = "0.4.0"
 	lazy val dcsCommonsVersion     = "0.3.0"
 	lazy val dcsKaaClientVersion   = "0.3.0-SNAPSHOT"
