@@ -1,6 +1,16 @@
-# Alambeek Spark Processors Project
+# Daimo Spark Processors Project
+
+This library is a collection of [Apache Spark](https://spark.apache.org/) compatible computational modules or processors that make up the nodes of a Daimo data flow.
+
+## Features
+
+The main features of this project include,
+
+- Specific processor to manage Spark deployment
+- Generic design to facilitate implementation of Spark-compatible processors.
 
 # License
+
 Copyright (c) 2017-2018 brewlabs SAS
 
 Licensed under the Apache License, Version 2.0 (the "License");
